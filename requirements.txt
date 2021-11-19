@@ -1,0 +1,4 @@
+pyTelegramBotAPI
+alembic
+python-dotenv
+sqlalchemy
