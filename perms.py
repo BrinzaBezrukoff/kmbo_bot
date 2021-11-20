@@ -1,24 +1,27 @@
 from functools import wraps
 
-from models import get_user, db_required
+from models import get_user, get_db, close_db
 
 
 def user_required(func):
     @wraps(func)
-    @db_required
-    def wrapper(message, db, *args, **kwargs):
+    def wrapper(message, *args, **kwargs):
+        db = get_db()
         user = get_user(db, message.from_user.id)
+        close_db()
         return func(message, *args, **kwargs, user=user)
     return wrapper
 
 
 def role_required(role, error_cb):
     def role_required_decor(func):
-        @user_required
         @wraps(func)
-        def wrapper(message, user, *args, **kwargs):
+        def wrapper(message, *args, **kwargs):
+            db = get_db()
+            user = get_user(db, message.from_user.id)
+            close_db()
             if user.role < role:
                 return error_cb(message, user)
-            return func(message, *args, **kwargs, user=user)
+            return func(message, *args, **kwargs)
         return wrapper
     return role_required_decor

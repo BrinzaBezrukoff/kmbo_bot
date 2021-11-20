@@ -16,6 +16,15 @@ session_factory = sessionmaker(engine)
 Session = scoped_session(session_factory)
 
 
+def get_db():
+    session = Session()
+    return session
+
+
+def close_db():
+    Session.remove()
+
+
 def db_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -72,6 +81,10 @@ class Deadline (Base):
 
     subject_id = Column(Integer, ForeignKey("subjects.id"))
     subject = relationship(Subject, backref=backref("deadlines", lazy="dynamic"))
+
+    @property
+    def dead_str(self):
+        return self.dead_date.strftime("%d.%m.%Y %H:%M")
 
     def __repr__(self):
         return f'<Deadline#{self.id} "{self.name}" by {self.subject.name}>'
