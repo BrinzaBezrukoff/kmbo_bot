@@ -1,18 +1,29 @@
 from datetime import datetime
+from functools import wraps
 
 from sqlalchemy import *
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship, backref
+from sqlalchemy.orm import sessionmaker, relationship, backref, scoped_session
 
 from config import DATABASE_URI, DATABASE_ECHO
-from perms import Role
+from enums import Role
 
 
 engine = create_engine(DATABASE_URI, echo=DATABASE_ECHO)
 
 Base = declarative_base()
-Session = sessionmaker(engine)
-session = Session()
+session_factory = sessionmaker(engine)
+Session = scoped_session(session_factory)
+
+
+def db_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        session = Session()
+        res = func(*args, **kwargs, db=session)
+        Session.remove()
+        return res
+    return wrapper
 
 
 class Subject (Base):
@@ -32,19 +43,22 @@ class User (Base):
     name = Column(String(100), default="Noname")
     surname = Column(String(100), default="Noname")
 
-    role = Column(Integer, default=Role.GUEST)
+    role = Column(Integer, default=Role.Guest)
 
     def __repr__(self):
-        return f'<User#{self.id} "{self.name} {self.surname}", r: {self.role}>'
+        return f'<User#{self.tg_id} "{self.name} {self.surname}", {self.role_name}>'
 
-    def is_user(self):
-        return self.role == Role.USER
+    @property
+    def role_name(self):
+        return Role(self.role).name
 
-    def is_admin(self):
-        return self.role == Role.ADMIN
+    @property
+    def is_guest(self):
+        return self.role == Role.Guest
 
-    def is_editor(self):
-        return self.role == Role.EDITOR
+    @classmethod
+    def get_guest(cls, tg_id):
+        return User(tg_id=tg_id, role=Role.Guest, name="Guest", surname="Guest")
 
 
 class Deadline (Base):
@@ -61,6 +75,13 @@ class Deadline (Base):
 
     def __repr__(self):
         return f'<Deadline#{self.id} "{self.name}" by {self.subject.name}>'
+
+
+def get_user(db, tg_id):
+    user = db.query(User).get(tg_id)
+    if not user:
+        user = User.get_guest(tg_id)
+    return user
 
 
 def create_all():

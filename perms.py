@@ -1,9 +1,24 @@
-from enum import IntEnum, unique
+from functools import wraps
+
+from models import get_user, db_required
 
 
-@unique
-class Role (IntEnum):
-    GUEST = 0
-    USER = 1
-    EDITOR = 2
-    ADMIN = 3
+def user_required(func):
+    @wraps(func)
+    @db_required
+    def wrapper(message, db, *args, **kwargs):
+        user = get_user(db, message.from_user.id)
+        return func(message, *args, **kwargs, user=user)
+    return wrapper
+
+
+def role_required(role, error_cb):
+    def role_required_decor(func):
+        @user_required
+        @wraps(func)
+        def wrapper(message, user, *args, **kwargs):
+            if user.role < role:
+                return error_cb(message, user)
+            return func(message, *args, **kwargs, user=user)
+        return wrapper
+    return role_required_decor

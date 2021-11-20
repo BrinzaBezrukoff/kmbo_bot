@@ -1,3 +1,6 @@
 
+from bot import bot
+
+
 if __name__ == '__main__':
-    print("All ok")
+    bot.polling()
